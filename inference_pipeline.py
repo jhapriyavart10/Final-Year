@@ -14,17 +14,11 @@ from models.denoiser.dncnn import DnCNN
 from models.super_resolution.rrdbnet import RRDBNet
 
 def run_inference():
-    print("Running Inference Pipeline on Test Set...")
+    print("Running Inference Pipeline on ALL Sets (Train/Val/Test)...")
     
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {DEVICE}")
 
-    # Paths
-    # We will process ALL degraded test images and save them to enhanced
-    test_degraded_dir = os.path.join("data", "degraded", "test")
-    enhanced_dir = os.path.join("data", "enhanced", "test")
-    os.makedirs(enhanced_dir, exist_ok=True)
-    
     # Load Models
     print("Loading models...")
     
@@ -51,41 +45,46 @@ def run_inference():
     denoiser.eval()
     sr_model.eval()
 
-    files = glob.glob(os.path.join(test_degraded_dir, "*.png"))
-    if not files:
-        print("No test files found in data/degraded/test/")
-        return
-
-    print(f"Processing {len(files)} images...")
+    # Process all splits
+    splits = ['train', 'val', 'test']
     
-    for f in tqdm(files):
-        filename = os.path.basename(f)
+    for split in splits:
+        print(f"\nProcessing {split} set...")
+        degraded_dir = os.path.join("data", "degraded", split)
+        enhanced_dir = os.path.join("data", "enhanced", split)
+        os.makedirs(enhanced_dir, exist_ok=True)
         
-        # Load Degraded Image (64x64)
-        img = Image.open(f).convert('L')
-        img_np = np.array(img)
-        
-        # Preprocess
-        tensor = torch.from_numpy(img_np / 255.0).float().unsqueeze(0).unsqueeze(0).to(DEVICE)
-        
-        with torch.no_grad():
-            # Step 1: Denoise
-            # Model predicts cleaned image directly (based on my previous verification of training loop)
-            # Training: loss(output, clean) -> output IS clean version
-            denoised_tensor = denoiser(tensor)
-            
-            # Step 2: Super-Resolution (x4)
-            enhanced_tensor = sr_model(denoised_tensor)
-            
-        # Post-process
-        enhanced_np = enhanced_tensor.squeeze().cpu().numpy()
-        enhanced_np = np.clip(enhanced_np * 255.0, 0, 255).astype(np.uint8)
-        
-        # Save
-        save_path = os.path.join(enhanced_dir, filename)
-        cv2.imwrite(save_path, enhanced_np)
+        files = glob.glob(os.path.join(degraded_dir, "*.png"))
+        if not files:
+            print(f"No files found in {degraded_dir}")
+            continue
 
-    print(f"✅ Inference complete! Enhanced images saved to {enhanced_dir}")
+        for f in tqdm(files, desc=f"Enhancing {split}"):
+            filename = os.path.basename(f)
+            
+            # Load Degraded Image (64x64)
+            img = Image.open(f).convert('L')
+            img_np = np.array(img)
+            
+            # Preprocess
+            tensor = torch.from_numpy(img_np / 255.0).float().unsqueeze(0).unsqueeze(0).to(DEVICE)
+            
+            with torch.no_grad():
+                # Step 1: Denoise
+                cleaned_tensor = denoiser(tensor)
+                
+                # Step 2: Super-Resolution (x4)
+                enhanced_tensor = sr_model(cleaned_tensor)
+                
+            # Post-process
+            enhanced_np = enhanced_tensor.squeeze().cpu().numpy()
+            enhanced_np = np.clip(enhanced_np * 255.0, 0, 255).astype(np.uint8)
+            
+            # Save
+            save_path = os.path.join(enhanced_dir, filename)
+            cv2.imwrite(save_path, enhanced_np)
+
+    print(f"\n✅ Inference complete! All datasets enriched.")
 
 if __name__ == "__main__":
     run_inference()
