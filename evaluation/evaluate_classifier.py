@@ -16,8 +16,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from models.classifier.resnet import Classifier
 
 class CXRDataset(torch.utils.data.Dataset):
-    def __init__(self, root_dir, dataset_type='original', split='test', labels_file="data/sample_labels.csv"):
-        self.img_dir = os.path.join(root_dir, dataset_type, split)
+    def __init__(self, img_dir, labels_file="data/sample_labels.csv"):
+        self.img_dir = img_dir
         self.files = glob.glob(os.path.join(self.img_dir, "*.png"))
         
         # Load Labels
@@ -54,28 +54,15 @@ class CXRDataset(torch.utils.data.Dataset):
         img_t = self.transform(img)
         return img_t, torch.tensor(label, dtype=torch.long)
 
-def evaluate_model(dataset_type):
-    print(f"\nEvaluating Classifier trained on {dataset_type.upper()} data...")
-    
-    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+def evaluate_model(model, dataset_dir, DEVICE):
+    print(f"\nEvaluating Classifier on {dataset_dir} data...")
     BATCH_SIZE = 32
-    
-    # Load Model
-    model = Classifier(num_classes=2, in_channels=1).to(DEVICE)
-    model_path = os.path.join("models", "classifier", f"classifier_{dataset_type}.pth")
-    
-    if not os.path.exists(model_path):
-        print(f"Model file not found: {model_path}")
-        return None
-        
-    model.load_state_dict(torch.load(model_path, map_location=DEVICE))
-    model.eval()
     
     # Test Data
     try:
-        test_dataset = CXRDataset(os.path.join("data"), dataset_type=dataset_type, split='test')
+        test_dataset = CXRDataset(img_dir=dataset_dir)
         if len(test_dataset) == 0:
-            print("No valid test files or labels found.")
+            print(f"No valid test files or labels found in {dataset_dir}.")
             return None
         test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
     except Exception as e:
@@ -86,6 +73,7 @@ def evaluate_model(dataset_type):
     all_preds_prob = []
     all_preds_cls = []
     
+    model.eval()
     with torch.no_grad():
         for imgs, labels in tqdm(test_loader, desc="Testing"):
             imgs = imgs.to(DEVICE)
@@ -106,7 +94,7 @@ def evaluate_model(dataset_type):
     except:
         auc = 0.5 # Fail-safe
         
-    print(f"Results for {dataset_type}:")
+    print(f"Results for {dataset_dir}:")
     print(f"Accuracy: {acc:.4f}")
     print(f"F1-Score: {f1:.4f}")
     print(f"AUC:      {auc:.4f}")
@@ -114,25 +102,51 @@ def evaluate_model(dataset_type):
     return {"Accuracy": acc, "F1": f1, "AUC": auc}
 
 def compare():
-    print("Compairing classification performance...")
-    # Evaluate degraded
-    res_degraded = evaluate_model("degraded")
+    print("Comparing classification performance across configurations...")
     
-    # Evaluate enhanced
-    res_enhanced = evaluate_model("enhanced")
+    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    if res_degraded and res_enhanced:
-        print("\n" + "="*60)
-        print("CLASSIFICATION PERFORMANCE COMPARISON")
-        print("="*60)
-        print(f"{'Metric':<15} | {'Degraded':<10} | {'Enhanced':<10} | {'Change':<10}")
-        print("-" * 55)
-        for k in ["Accuracy", "F1", "AUC"]:
-            deg = res_degraded[k]
-            enh = res_enhanced[k]
-            change = enh - deg
-            print(f"{k:<15} | {deg:.4f}     | {enh:.4f}     | {change:+.4f}")
-        print("-" * 55)
+    # Load Model (We'll use classifier_enhanced as the baseline evaluator, or fallback to degraded)
+    model = Classifier(num_classes=2, in_channels=1).to(DEVICE)
+    model_path = os.path.join("models", "classifier", "classifier_enhanced.pth")
+    if not os.path.exists(model_path):
+         model_path = os.path.join("models", "classifier", "classifier_degraded.pth")
+    
+    if os.path.exists(model_path):
+         model.load_state_dict(torch.load(model_path, map_location=DEVICE))
+    else:
+         print("Warning: No classifier weights found.")
+         return
+         
+    # Directories from the compare_configurations script 
+    dirs_to_evaluate = {
+        "Degraded": os.path.join("data", "evaluation_outputs", "1_degraded_bicubic"),
+        "ESRGAN Only": os.path.join("data", "evaluation_outputs", "2_sr_only"),
+        "Full Pipeline": os.path.join("data", "evaluation_outputs", "3_full_pipeline")
+    }
+    
+    results = {}
+    for name, path in dirs_to_evaluate.items():
+        if os.path.exists(path):
+            res = evaluate_model(model, path, DEVICE)
+            if res:
+                results[name] = res
+        else:
+            print(f"Directory {path} not found. Ensure compare_configurations.py has run first.")
+            
+    if results:
+        print("\n" + "="*70)
+        print("                 CLASSIFICATION PERFORMANCE COMPARISON")
+        print("="*70)
+        
+        df = pd.DataFrame(results).T
+        print(df.to_string(float_format="{:.4f}".format))
+        print("="*70)
+        
+        # Save to CSV
+        output_csv = os.path.join("evaluation", "classifier_comparison_table.csv")
+        df.to_csv(output_csv, index_label="Configuration")
+        print(f"\nClassification results saved to {output_csv}")
 
 if __name__ == "__main__":
     compare()
