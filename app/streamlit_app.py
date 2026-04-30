@@ -280,6 +280,7 @@ def main():
         st.markdown("---")
         show_cls = st.checkbox("Show Classification Results", value=True)
         show_heatmap = st.checkbox("Show Error Heatmap", value=False)
+        show_gradcam = st.checkbox("Show Explainable AI (Grad-CAM)", value=True)
         st.markdown("---")
         st.markdown("""
         <div style='font-size:0.78rem; color:#484f58;'>
@@ -389,6 +390,50 @@ def main():
                   <div class="metric-value" style="font-size:1.1rem">{cls_enh}</div>
                   <div class="metric-delta">{conf_enh:.1%} confidence</div>
                 </div>""", unsafe_allow_html=True)
+
+            # ── Grad-CAM ────────────────────────────────────────
+            if show_gradcam and classifier is not None:
+                st.markdown("---")
+                st.markdown('<p class="section-header">Explainable AI (Grad-CAM Focus Regions)</p>', unsafe_allow_html=True)
+                st.markdown("<p style='font-size:0.85rem; color:#8b949e; margin-top:-10px; margin-bottom:15px;'>Highlights the specific lung structures the ResNet-18 model analyzed to make its diagnosis. <b style='color:#f85149;'>Red = High Importance</b>.</p>", unsafe_allow_html=True)
+                
+                from evaluation.visualize_gradcam import SimpleGradCAM, overlay_cam_on_image
+                from torchvision import transforms
+                
+                def get_cam_overlay(img_arr, model, device):
+                    target_layer = model.model.layer4[-1].conv2
+                    cam_extractor = SimpleGradCAM(model, target_layer)
+                    
+                    transform = transforms.Compose([
+                        transforms.ToPILImage(),
+                        transforms.Resize((224, 224)),
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=[0.5], std=[0.5])
+                    ])
+                    # Ensure grayscale for transform
+                    if len(img_arr.shape) > 2:
+                        img_arr = cv2.cvtColor(img_arr, cv2.COLOR_RGB2GRAY)
+                        
+                    tensor = transform(img_arr).unsqueeze(0).to(device)
+                    cam, _ = cam_extractor(tensor)
+                    
+                    # Base image for overlay
+                    img_resized = cv2.resize(img_arr, (224, 224))
+                    overlay = overlay_cam_on_image(img_resized, cam)
+                    return overlay
+                
+                with st.spinner("Generating Explainable AI Heatmaps..."):
+                    cam_deg = get_cam_overlay(degraded, classifier, device)
+                    cam_enh = get_cam_overlay(enhanced, classifier, device)
+                    cam_orig = get_cam_overlay(original, classifier, device)
+                
+                gc1, gc2, gc3 = st.columns(3)
+                with gc1:
+                    st.image(cam_deg, use_container_width=True, clamp=True, caption="Degraded Focus")
+                with gc2:
+                    st.image(cam_enh, use_container_width=True, clamp=True, caption="Enhanced Focus")
+                with gc3:
+                    st.image(cam_orig, use_container_width=True, clamp=True, caption="Ground Truth Focus")
 
             # ── Heatmap ─────────────────────────────────────────
             if show_heatmap:
