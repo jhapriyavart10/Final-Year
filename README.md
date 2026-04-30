@@ -1,17 +1,17 @@
-# ?? Medical Chest X-Ray Enhancement Pipeline
+# 🩻 Medical Chest X-Ray Enhancement Pipeline
 
 ![Project Status](https://img.shields.io/badge/Status-Complete-success)
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
 ![PyTorch](https://img.shields.io/badge/PyTorch-Deep%20Learning-orange)
 
-## ?? Project Overview
+## 📖 Project Overview
 Medical imaging is critical for early diagnosis, but image quality is often compromised by noise (from low-dose radiation for safety) or low resolution (hardware/storage constraints). Poor quality obscures fine details like nodules or fractures.
 
 This project is a **complete end-to-end Deep Learning pipeline** designed to restore high-quality visual details from degraded Chest X-Rays. It not only enhances the images visually but also validates that these enhancements improve disease classification accuracy.
 
 ---
 
-## ??? Architecture & Pipeline WorkFlow
+## ⚙️ Architecture & Pipeline WorkFlow
 
 The pipeline runs in 3 main stages:
 1. **Stage 1: Denoising (DnCNN)** - Removes Gaussian noise from the degraded 64x64 input.
@@ -20,58 +20,58 @@ The pipeline runs in 3 main stages:
 
 ---
 
-## ?? Repository Structure (Where to find what)
+## 📂 Repository Structure (Where to find what)
 
 To easily navigate the project, here is how the files are organized:
 
-\\\	ext
+```text
 Root/
-+-- app/                        # ??? User Interface
-¦   +-- streamlit_app.py        # Interactive web app to upload and test images
-+-- data/                       # ?? Dataset & Results
-¦   +-- original/               # High-quality ground truth images (256x256)
-¦   +-- degraded/               # Low-quality noisy inputs (64x64)
-¦   +-- enhanced/               # Pipeline output outputs
-¦   +-- evaluation_outputs/     # Visual results, heatmaps, and saved charts
-+-- evaluation/                 # ?? Testing & Metrics Scripts
-¦   +-- evaluate_pipeline.py    # Calculates PSNR / SSIM of the whole pipeline
-¦   +-- evaluate_classifier.py  # Tests if enhanced images classify better than degraded
-¦   +-- visualize_heatmaps.py   # Generates heatmaps showing restored details
-¦   +-- ... (other analytic scripts)
-+-- models/                     # ?? Neural Network Architectures & Weights
-¦   +-- denoiser/               # DnCNN model architecture and .pth weights
-¦   +-- super_resolution/       # RRDBNet / ESRGAN architecture and weights
-¦   +-- classifier/             # ResNet18 architecture and weights
-+-- training/                   # ??? Scripts to Train the Models
-¦   +-- train_denoiser.py       # Train the DnCNN model
-¦   +-- train_sr.py             # Train the Super Resolution model
-¦   +-- train_classifier.py     # Train the ResNet validation classifier
++-- app/                        # 💻 User Interface
+|   +-- streamlit_app.py        # Interactive web app to upload and test images
++-- data/                       # 📊 Dataset & Results
+|   +-- original/               # High-quality ground truth images (256x256)
+|   +-- degraded/               # Low-quality noisy inputs (64x64)
+|   +-- enhanced/               # Pipeline output outputs
+|   +-- evaluation_outputs/     # Visual results, heatmaps, and saved charts
++-- evaluation/                 # 🧪 Testing & Metrics Scripts
+|   +-- evaluate_pipeline.py    # Calculates PSNR / SSIM of the whole pipeline
+|   +-- evaluate_classifier.py  # Tests if enhanced images classify better than degraded
+|   +-- visualize_heatmaps.py   # Generates heatmaps showing restored details
+|   +-- ... (other analytic scripts)
++-- models/                     # 🧠 Neural Network Architectures & Weights
+|   +-- denoiser/               # DnCNN model architecture and .pth weights
+|   +-- super_resolution/       # RRDBNet / ESRGAN architecture and weights
+|   +-- classifier/             # ResNet18 architecture and weights
++-- training/                   # 🛠️ Scripts to Train the Models
+|   +-- train_denoiser.py       # Train the DnCNN model
+|   +-- train_sr.py             # Train the Super Resolution model
+|   +-- train_classifier.py     # Train the ResNet validation classifier
 +-- setup_data.py               # (Step 1) Downloads/Organizes base dataset
 +-- create_degraded_data.py     # (Step 2) Generates noisy/low-res inputs for training
 +-- inference_pipeline.py       # Core logic that connects Denoiser -> SR model
-\\\
+```
 
 ---
 
-## ?? Step-by-Step Guide to the Project
+## 🚀 Step-by-Step Guide to the Project
 
 ### Step 1: Installation & Setup
 Install the required dependencies:
-\\\ash
+```bash
 pip install -r requirements.txt
-\\\
+```
 
 ### Step 2: Data Preparation
 If you are setting up from scratch, prepare the data:
-1. **Setup base folders & data**: \python setup_data.py\
-2. **Generate the degraded inputs**: \python create_degraded_data.py\
+1. **Setup base folders & data**: `python setup_data.py`
+2. **Generate the degraded inputs**: `python create_degraded_data.py`
 *(This creates the degraded 64x64 images from the original 256x256 images).*
 
 ### Step 3: Training (Optional - Pre-trained weights are provided)
 If you want to retrain the models from scratch:
-1. \python training/train_denoiser.py\
-2. \python training/train_sr.py\
-3. \python training/train_classifier.py\
+1. `python training/train_denoiser.py`
+2. `python training/train_sr.py`
+3. `python training/train_classifier.py`
 
 ### Step 4: Running Evaluations (Testing the system)
 Verify how well the system works computationally:
@@ -82,13 +82,13 @@ Verify how well the system works computationally:
 
 ### Step 5: Run the Interactive Web App (Demo)
 Launch the user interface to visually test the pipeline on new X-Ray images:
-\\\ash
+```bash
 streamlit run app/streamlit_app.py
-\\\
+```
 
 ---
 
-## 📈 Summary of Results
+## 📊 Summary of Results
 
 ### 1. Image Quality Metrics
 We evaluate the visual restoration quality of our pipeline by comparing the generated images against the original ground truth.
@@ -119,6 +119,6 @@ For a system to be viable in a real-world clinical setting, it must be lightweig
   - *ResNet18*: 42.69 MB
 - **Inference Latency**: `~303 ms` per image (CPU). The pipeline processes images at **~3.3 FPS** purely on CPU, meaning it can provide near real-time enhancement without requiring expensive GPU hardware.
 
-## ?? Notes for Future Development
+## 💡 Notes for Future Development
 - **Real-World Data:** Currently trained on synthetic Gaussian noise. Future iterations should test authentic low-dose/high-dose paired X-Rays.
 - **Resource Constraints:** Ensure you have a CUDA-capable GPU for faster inference, though the pipeline will fall back to CPU if necessary.
